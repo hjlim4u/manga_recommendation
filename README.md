@@ -12,9 +12,10 @@ docker-compose up -d
 
 # 2. 환경 변수 설정 (.env 파일)
 echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+echo "TAVILY_API_KEY=your_tavily_api_key_here" >> .env  # 웹 검색용
 
-# 3. 의존성 설치
-pip install -e .
+# 3. 의존성 설치 (uv 사용)
+uv sync
 
 # 4. 실행
 python main.py
@@ -25,11 +26,12 @@ python main.py
 ```bash
 # 1. 환경 변수 설정 (.env 파일)
 echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+echo "TAVILY_API_KEY=your_tavily_api_key_here" >> .env
 echo "QDRANT_URL=https://your-cluster.qdrant.io" >> .env
 echo "QDRANT_API_KEY=your_api_key_here" >> .env
 
 # 2. 의존성 설치
-pip install -e .
+uv sync
 
 # 3. 실행
 python main.py
@@ -37,9 +39,13 @@ python main.py
 
 ## 🛠️ 환경 설정
 
-### 1. Qdrant 벡터 저장소 설정
+### 필수 요구사항
+- Python 3.13+
+- Docker (로컬 개발 시)
+- OpenAI API 키
+- Tavily API 키 (웹 검색 기능)
 
-이 프로젝트는 벡터 저장소로 Qdrant를 사용합니다. **Docker (로컬)** 또는 **클라우드 Qdrant** 중 선택할 수 있습니다.
+### 1. Qdrant 벡터 저장소 설정
 
 #### 🐳 Docker 방식 (로컬 개발용)
 
@@ -50,170 +56,111 @@ docker-compose up -d
 # 컨테이너 상태 확인
 docker-compose ps
 
-# Qdrant 웹 UI 접속 (선택사항)
+# Qdrant 웹 UI 접속
 # http://localhost:6333/dashboard
 ```
 
 #### ☁️ 클라우드 방식 (상용 환경용)
 
-Qdrant Cloud 계정이 필요합니다: https://cloud.qdrant.io/
-
-1. Qdrant Cloud에서 새 클러스터 생성
-2. 환경 변수 설정 (아래 참조)
+1. [Qdrant Cloud](https://cloud.qdrant.io/)에서 새 클러스터 생성
+2. API 키 발급
+3. `.env` 파일에 URL과 API 키 설정
 
 ### 2. Python 환경 설정
 
 ```bash
-# Python 가상환경 생성 및 활성화
-python -m venv .venv
-source .venv/bin/activate  # macOS/Linux
-# 또는
-.venv\Scripts\activate     # Windows
+# uv 설치 (아직 없다면)
+pip install uv
 
 # 의존성 설치
-pip install -e .
+uv sync
 ```
 
 ### 3. 환경 변수 설정
 
-`.env` 파일을 생성하고 다음 환경 변수를 설정하세요:
-
-#### 🐳 Docker 방식 사용 시 (최소 설정)
+`.env` 파일 생성:
 
 ```bash
-# OpenAI API 키 (필수)
+# 필수
 OPENAI_API_KEY=your_openai_api_key_here
-
-# Tavily API 키 (웹 검색용, 선택사항)
-TAVILY_API_KEY=your_tavily_api_key_here
-```
-
-#### ☁️ 클라우드 방식 사용 시 (추가 설정)
-
-```bash
-# OpenAI API 키 (필수)
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Tavily API 키 (웹 검색용, 선택사항)
 TAVILY_API_KEY=your_tavily_api_key_here
 
-# Qdrant Cloud 설정 (클라우드 사용 시 필수)
+# 클라우드 Qdrant 사용 시 추가
 QDRANT_URL=https://your-cluster-id.qdrant.io
 QDRANT_API_KEY=your_qdrant_api_key_here
 ```
 
-**💡 자동 감지**: `QDRANT_URL`과 `QDRANT_API_KEY`가 설정되어 있으면 자동으로 클라우드 모드로 전환됩니다.
-
-## 🚀 실행 방법
-
-### 기본 실행
-
-```bash
-# 메인 추천 시스템 실행
-python main.py
-```
-
-### 개발/테스트 환경
-
-#### 🐳 Docker 방식
-
-```bash
-# Qdrant 시작
-docker-compose up -d
-
-# 프로그램 실행
-python main.py
-
-# 작업 완료 후 Qdrant 중지
-docker-compose down
-```
-
-#### ☁️ 클라우드 방식
-
-```bash
-# 환경 변수 설정 후 바로 실행
-python main.py
-```
-
-## 📦 Docker 관리 명령어 (Docker 방식 사용 시)
-
-```bash
-# Qdrant 시작 (백그라운드)
-docker-compose up -d
-
-# Qdrant 중지
-docker-compose down
-
-# Qdrant 데이터와 함께 완전 삭제
-docker-compose down -v
-
-# 컨테이너 로그 확인
-docker-compose logs qdrant
-
-# Qdrant 재시작
-docker-compose restart qdrant
-```
-
-## 🔧 Qdrant 설정 정보
-
-### 🐳 Docker 방식
-- **HTTP API 포트**: 6333
-- **gRPC 포트**: 6334 (선택사항)
-- **웹 대시보드**: http://localhost:6333/dashboard
-- **데이터 저장소**: Docker 볼륨 `qdrant_storage`
-
-### ☁️ 클라우드 방식
-- **URL**: https://your-cluster-id.qdrant.io
-- **API 키**: Qdrant Cloud 대시보드에서 확인
-- **웹 대시보드**: 클라우드 대시보드에서 관리
-
 ## 🏗️ 시스템 아키텍처
+```mermaid
+graph TB
+    subgraph "사용자 인터페이스"
+        UI[👤 사용자 입력<br/>성별, 연령, 장르, 좋아하는 만화]
+    end
+    
+    subgraph "애플리케이션 레이어"
+        MAIN[🚀 main.py<br/>실행 진입점]
+        GRAPH[🧠 LangGraph Engine<br/>워크플로우 관리]
+    end
+    
+    subgraph "데이터 소스 레이어"
+        CSV[📊 CSV 파일<br/>개발/테스트용]
+        DB[🗄️ 데이터베이스<br/>PostgreSQL/MySQL]
+        MOCK[🎭 Mock 데이터<br/>대용량 테스트]
+    end
+    
+    subgraph "처리 엔진"
+        BATCH[⚡ 배치 스트리밍<br/>메모리 효율 처리]
+        EMBED[🔢 OpenAI Embedding<br/>벡터 변환]
+    end
+    
+    subgraph "클라우드 서비스"
+        QDRANT_CLOUD[☁️ Qdrant Cloud<br/>us-west-1 AWS<br/>벡터 데이터베이스]
+        OPENAI_API[🤖 OpenAI API<br/>GPT + Embedding]
+        TAVILY_API[🌐 Tavily API<br/>웹 검색]
+    end
+    
+    subgraph "추천 결과"
+        RESULT[📋 추천 결과<br/>3개 만화 + 이유]
+    end
+    
+    UI --> MAIN
+    MAIN --> GRAPH
+    
+    CSV --> BATCH
+    DB --> BATCH
+    MOCK --> BATCH
+    
+    BATCH --> EMBED
+    EMBED --> QDRANT_CLOUD
+    
+    GRAPH --> QDRANT_CLOUD
+    GRAPH --> OPENAI_API
+    GRAPH --> TAVILY_API
+    
+    OPENAI_API --> RESULT
+    TAVILY_API --> OPENAI_API
+    QDRANT_CLOUD --> OPENAI_API
+    
+    RESULT --> UI
+```
 
 ### 핵심 컴포넌트
 
 ```
 📁 manga-recommendation/
-├── 🎯 domain.py                 # 도메인 모델 (Gender, AgeGroup, AgeRating)
-├── 📊 data_source.py            # 데이터 소스 추상화 (배치 스트리밍 지원)
-├── 🔍 vector_store.py           # 벡터 저장소 (Qdrant + 배치 인덱싱)
-├── 🧠 manga-recommendation-langgraph.py  # 메인 추천 로직 (LangGraph)
-└── 📈 main.py                   # 실행 예시
+├── 🎯 main.py                          # 메인 실행 파일
+├── 🧠 manga_recommendation_langgraph.py # LangGraph 기반 추천 로직
+├── 📊 data_source.py                   # 데이터 소스 추상화
+├── 🔍 vector_store.py                  # Qdrant 벡터 저장소
+├── 📝 prompt_templates.py              # LLM 프롬프트 템플릿
+├── 🎭 domain.py                        # 도메인 모델 (Demographic)
+└── 📄 README.md                        # 프로젝트 문서
 ```
 
-### 데이터 소스 추상화
-
-대용량 데이터 처리를 위한 **배치 스트리밍** 아키텍처:
-
-#### 1. **CSVMangaDataSource** (테스트/개발용)
-```python
-# 소규모 CSV 파일 처리
-csv_source = CSVMangaDataSource("manga_data.csv")
-```
-
-#### 2. **DatabaseMangaDataSource** (상용 환경)
-```python
-# 실제 DB 연결 (PostgreSQL, MySQL 등)
-db_config = {
-    "host": "localhost",
-    "database": "manga_db", 
-    "user": "user",
-    "password": "password"
-}
-db_source = DatabaseMangaDataSource(db_config, db_batch_size=10000)
-```
-
-#### 3. **MockDatabaseMangaDataSource** (대용량 테스트)
-```python
-# 백만개 레코드 시뮬레이션
-mock_source = MockDatabaseMangaDataSource(record_count=1000000)
-```
-
-# 📚 **manga-recommendation-langgraph 추천 로직 상세 분석**
-
-## 🏗️ **전체 아키텍처**
+### 추천 워크플로우
 
 ```mermaid
-graph TD
+graph LR
     A[사용자 입력] --> B[프로필 처리]
     B --> C[벡터 검색]
     C --> D[웹 검색 보강]
@@ -221,385 +168,189 @@ graph TD
     E --> F[품질 검증]
     F --> G{검증 통과?}
     G -->|재시도| C
-    G -->|통과| H[최종 결과]
-```
-
----
-
-## 📊 **1. 데이터 구조 (RecommendationState)**
-
-```python
-class RecommendationState(TypedDict):
-    # 사용자 입력
-    user_gender: Literal["male", "female", "skip"]
-    user_age_group: Literal["12~15", "15~18", "18~30", "30~40", "40~50", "50~"]
-    user_genres: List[str]
-    user_favorite_manga: str
-    
-    # 처리 결과
-    search_results: List[Document] # 벡터 검색 결과
-    recommendations: List[Dict]    # 최종 추천
-    # ... 기타 상태 정보
-```
-
-모든 추천 과정의 상태를 추적하며, 각 단계에서 데이터를 누적 저장합니다.
-
----
-
-## 🗄️ **2. 벡터 데이터베이스 (Qdrant)**
-
-### **데이터 인덱싱**
-```python
-def _initialize_data(self):
-    # 1. CSV에서 만화 정보 로드
-    # 2. page_content 파싱 (LangChain CSV 로더 특성상)
-    # 3. 메타데이터 정규화 (제목, 장르, 작가, 줄거리 등)
-    # 4. OpenAI embedding (text-embedding-3-large) 생성
-    # 5. Qdrant에 배치 인덱싱
-```
-
-### **핵심 특징**
-- **벡터 차원**: 3072 (OpenAI text-embedding-3-large)
-- **유사도 측정**: Cosine Distance
-- **인덱싱 방식**: 배치 처리 (100개씩)
-
----
-
-## 🔄 **3. 추천 워크플로우 (5단계)**
-
-### **Step 1: 프로필 처리 (`process_user_profile`)**
-
-```python
-profile = {
-    'gender': VALID_GENDERS[state['user_gender']],
-    'age_group': VALID_AGE_GROUPS[state['user_age_group']], 
-    'preferred_genres': state['user_genres'],
-    'favorite_manga': self._parse_favorite_manga(state['user_favorite_manga']),
-    'max_age_rating': # 연령대 기반 제한
-}
-```
-
-**핵심 로직**:
-- 사용자 입력을 정규화된 프로필로 변환
-- 연령등급 제한 설정
-
----
-
-### **Step 2: 벡터 검색 (`search_similar_manga`)**
-
-**2가지 전략을 순차적으로 시도**:
-
-#### **전략 1: 중심점 임베딩 (`_search_by_centroid`)**
-```python
-# 1. 좋아하는 만화들의 임베딩 벡터 추출
-# 2. 중심점(centroid) 계산: np.mean(embeddings)
-# 3. 정규화: centroid / norm(centroid)
-# 4. Qdrant 검색 (장르+연령+제외 필터링)
-```
-
-#### **전략 2: 개별 검색 후 병합 (`_search_by_individual`)**
-```python
-# 1. 각 좋아하는 만화별로 개별 검색
-# 2. 검색 결과를 점수별로 누적
-# 3. 평균 점수로 정렬하여 병합
-```
-
-**중요한 매칭 로직**:
-```python
-# 부분 문자열 매칭으로 유사 제목 찾기
-if (title in db_title) or (db_title in title and len(db_title) > 3):
-    # "이건 사랑이지 연애가 아냐" → "이건 사랑이지 연애가 아냐 6권"
-```
-
----
-
-### **Step 3: 웹 검색 보강 (`enrich_with_web_search`)**
-
-```python
-# 병렬 웹 검색
-await asyncio.gather(
-    # 1. 사용자가 좋아하는 만화의 특징 수집
-    search_favorite_manga(title),
-    # 2. 후보 만화들의 리뷰 정보 수집  
-    search_candidate_info(doc)
-)
-```
-
-**Tavily Search 활용**:
-- 좋아하는 만화: `"{제목} 만화 특징 매력"`
-- 후보 만화: `"{제목} 만화 리뷰"`
-
----
-
-### **Step 4: LLM 추천 생성 (`generate_recommendations`)**
-
-**프롬프트 구성**:
-```python
-prompt = f"""
-[사용자가 좋아하는 만화의 특징]
-{웹검색으로 수집한 특징들}
-
-[사용자 프로필]
-- 좋아하는 만화: {profile['favorite_manga']}
-- 선호 장르: {profile['preferred_genres']}
-
-[추천 후보 만화] (상위 15개)
-1. 제목 (유사도: 0.xx)
-   장르: xxx / 작가: xxx / 줄거리: xxx
-
-위 후보 중 가장 적합한 3개를 선택하여 추천해주세요.
-**중요**: 반드시 정확히 3개의 추천을 제공해야 합니다.
-"""
-```
-
-**고도화된 파싱 로직**:
-```python
-# 다양한 형식의 제목 매칭
-match_patterns = [
-    title,                # 직접 매칭
-    f"**[{title}]**",    # **[제목]** 형식
-    f"[{title}]",        # [제목] 형식  
-    f"**{title}**"       # **제목** 형식
-]
-```
-
-**자동 보완 시스템**:
-- LLM이 3개 미만으로 파싱되면 상위 후보로 자동 채움
-- 항상 정확히 3개 추천 보장
-
----
-
-### **Step 5: 품질 검증 (`validate_results`)**
-
-**검증 조건**:
-```python
-if len(recommendations) < 3:
-    state['needs_refinement'] = True  # 재시도
-    
-# LLM 기반 품질 평가 (JSON 응답)
-{
-    "score": 0-100,
-    "pass": true/false (75점 이상 통과),
-    "reasoning": "평가 근거"
-}
-```
-
-**재시도 로직**:
-- 품질 점수 75점 미만 → 전략 2로 재시도
-- 최대 2회 시도 → 강제 통과 (무한루프 방지)
-
----
-
-## 🔧 **4. 핵심 기술적 특징**
-
-### **🎯 정확성**
-- **부분 문자열 매칭**: 제목 변형에 강건
-- **다중 매칭 패턴**: LLM 응답 형식 다양성 대응
-- **중복 방지**: 같은 만화 여러 번 추천 방지
-
-### **⚡ 성능**
-- **배치 인덱싱**: 1000개 문서를 100개씩 처리
-- **병렬 웹 검색**: asyncio.gather 활용
-- **효율적 필터링**: Qdrant 네이티브 필터 사용
-
-### **🛡️ 안정성**
-- **무한루프 방지**: 최대 시도 횟수 제한
-- **자동 보완**: 파싱 실패 시 대안 제공
-- **오류 처리**: 각 단계별 예외 처리
-
-### **📊 품질 보장**
-- **2단계 검증**: 개수 + LLM 품질 평가
-- **재시도 메커니즘**: 품질 미달 시 다른 전략 시도
-- **상세 로깅**: 각 단계별 진행 상황 추적
-
----
-
-## 🎯 **5. 최종 출력**
-
-```python
-# 각 추천마다 포함되는 정보
-recommendation = {
-    'id': 만화_ID,
-    'title': 제목,
-    'genre': 장르,
-    'author': 작가,
-    'outline': 줄거리,
-    'similarity_score': 유사도점수,
-    'recommendation_reason': 구체적인_추천이유
-}
-```
-
-이 시스템은 **벡터 검색의 정확성**과 **LLM의 맥락 이해**를 결합하여, 사용자 취향에 맞는 고품질 만화 추천을 안정적으로 제공합니다! 🚀
-
-## 🚀 핵심 기능
-
-### 1. 메모리 효율적 배치 스트리밍
-
-```python
-# ❌ 기존 방식 (메모리 부족 위험)
-all_data = data_source.load_manga_data()  # 전체 로드
-
-# ✅ 새로운 방식 (배치 스트리밍)
-for batch in data_source.load_manga_data_batches(batch_size=5000):
-    process_batch(batch)  # 배치별 처리
-    del batch  # 메모리 해제
-```
-
-### 2. 대용량 데이터 처리 성능
-
-| 데이터 크기 | 기존 방식 | 배치 스트리밍 |
-|------------|----------|-------------|
-| 1만개 | ✅ 가능 | ✅ 최적화 |
-| 10만개 | ⚠️ 느림 | ✅ 빠름 |
-| 100만개 | ❌ 메모리 부족 | ✅ 처리 가능 |
-| 1000만개 | ❌ 불가능 | ✅ 확장 가능 |
-
-### 3. 유연한 데이터 소스 교체
-
-```python
-# 개발 단계 - CSV 파일
-dev_source = CSVMangaDataSource("test_data.csv")
-
-# 테스트 단계 - 모킹 대용량 데이터  
-test_source = MockDatabaseMangaDataSource(record_count=100000)
-
-# 상용 단계 - 실제 데이터베이스
-prod_source = DatabaseMangaDataSource(db_config)
-
-# 동일한 인터페이스로 사용
-app = create_recommendation_graph(any_source)
+    G -->|통과| H[최종 추천]
 ```
 
 ## 📊 사용 예시
 
-### 기본 사용법 (CSV)
+### 기본 사용법
 
 ```python
 import asyncio
 from data_source import CSVMangaDataSource
+from manga_recommendation_langgraph import create_recommendation_graph
 
 # 사용자 입력
 user_input = {
-    "gender": "여",
-    "age": "18~30", 
-    "genres": ["로맨스/순정", "드라마"],
-    "favorite_manga": "목소리를 못 내는 소녀는"
+    "gender": "female",              # "male", "female", "skip"
+    "age": "18~30",                 # "12~15", "15~18", "18~30", "30~40", "40~50", "50~"
+    "genres": ["Romance", "Drama"],  # 선호 장르 리스트
+    "favorite_manga": "목소리를 못 내는 소녀는"  # 좋아하는 만화 제목
 }
 
-# CSV 데이터 소스 사용 (Docker Qdrant 자동 감지)
-csv_source = CSVMangaDataSource("graphic_kmas_comic(1).csv")
-result = await run_recommendation(user_input, data_source=csv_source)
+# 데이터 소스 설정
+csv_source = CSVMangaDataSource("manga_rows.csv")
 
-# 클라우드 Qdrant 강제 사용
-from vector_store import QdrantMangaStore
-cloud_store = QdrantMangaStore(use_cloud=True)
+# 추천 그래프 생성 및 실행
+app = create_recommendation_graph(csv_source)
+
+# 초기 상태 설정
+initial_state = {
+    "user_gender": user_input['gender'],
+    "user_age_group": user_input['age'],
+    "user_genres": user_input['genres'],
+    "user_favorite_manga": user_input['favorite_manga'],
+    "favorite_manga_docs": [],
+    "search_results": [],
+    "search_attempt": 0,
+    "recommendations": [],
+    "recommendation_quality": 0.0,
+    "needs_refinement": False,
+    "validation_log": []
+}
+
+# 실행
+async def run():
+    final_state = await app.ainvoke(initial_state, config={"recursion_limit": 10})
+    return final_state
+
+# 결과 출력
+result = asyncio.run(run())
 ```
 
-### 대용량 데이터 테스트
+## 🔧 주요 기능
+
+### 1. 다중 데이터 소스 지원
 
 ```python
-# 100만개 레코드 시뮬레이션
+# CSV 파일
+csv_source = CSVMangaDataSource("manga_data.csv")
+
+# 대용량 테스트 (모킹)
 mock_source = MockDatabaseMangaDataSource(record_count=1000000)
-result = await run_recommendation(user_input, data_source=mock_source)
+
+# 실제 데이터베이스 (구현 필요)
+db_config = {
+    "host": "localhost",
+    "database": "manga_db",
+    "user": "user",
+    "password": "password"
+}
+db_source = DatabaseMangaDataSource(db_config)
 ```
 
-### 상용 환경 (실제 DB)
+### 2. 벡터 검색 전략
+
+- **중심점 임베딩**: 좋아하는 만화들의 임베딩 평균값으로 검색
+- **개별 검색 후 병합**: 각 만화별로 검색 후 점수 집계
+
+### 3. 웹 검색 보강
+
+Tavily API를 통해 실시간 만화 정보 수집:
+- 좋아하는 만화의 특징 검색
+- 후보 만화들의 리뷰 정보 수집
+
+### 4. 품질 검증
+
+- 추천 개수 검증 (정확히 3개)
+- LLM 기반 품질 평가 (75점 이상)
+- 자동 재시도 메커니즘
+
+## 📈 성능 최적화
+
+### 메모리 효율적 배치 처리
 
 ```python
-# 실제 데이터베이스 연결 (구현 필요)
-db_config = {
-    "host": "prod-db.company.com",
-    "database": "manga_production",
-    "user": "manga_app",
-    "password": os.getenv("DB_PASSWORD")
+# 대용량 데이터 스트리밍
+for batch in data_source.load_manga_data_batches(batch_size=5000):
+    vector_store.index_manga_batch(batch)
+    del batch  # 메모리 해제
+```
+
+### 벡터 DB 인덱싱
+
+- 배치 크기: 100개 단위
+- 병렬 처리 가능
+- 중복 인덱싱 방지
+
+## 🆚 Docker vs 클라우드 Qdrant
+
+| 구분 | 🐳 Docker | ☁️ 클라우드 |
+|------|-----------|-------------|
+| **설정** | 간단 | API 키 필요 |
+| **비용** | 무료 | 유료 |
+| **성능** | 로컬 속도 | 네트워크 지연 |
+| **확장성** | 제한적 | 자동 확장 |
+| **백업** | 수동 | 자동 |
+| **권장 환경** | 개발/테스트 | 프로덕션 |
+
+## 🔍 디버깅
+
+### 벡터 DB 내용 확인
+
+```python
+# vector_store.py의 디버깅 메서드 사용
+vector_store = QdrantMangaStore()
+vector_store.debug_vector_db_contents(limit=10)
+```
+
+### 로그 레벨 설정
+
+```python
+import logging
+logging.basicConfig(level=logging.INFO)
+```
+
+## 📝 데이터 형식
+
+### CSV 파일 필수 컬럼
+
+- `id`: 만화 고유 ID (정수)
+- `title`: 만화 제목
+- `title_english`: 영문 제목
+- `title_japanese`: 일본어 제목
+- `genres`: 장르 (JSON 배열)
+- `themes`: 테마 (JSON 배열)
+- `demographics`: 대상 독자층 (JSON 배열)
+- `authors`: 작가 (JSON 배열)
+- `synopsis`: 줄거리
+- `status`: 연재 상태
+- `published`: 출간 정보 (JSON)
+- `images`: 이미지 정보 (JSON)
+
+### 사용자 입력 형식
+
+```python
+{
+    "gender": "male" | "female" | "skip",
+    "age": "12~15" | "15~18" | "18~30" | "30~40" | "40~50" | "50~",
+    "genres": ["Action", "Romance", ...],  # 선호 장르 리스트
+    "favorite_manga": "만화 제목"          # 좋아하는 만화 (단수)
 }
-
-db_source = DatabaseMangaDataSource(db_config)
-result = await run_recommendation(user_input, data_source=db_source)
 ```
 
-## 🔧 기술적 장점
+## 🚨 주의사항
 
-### 1. **메모리 효율성**
-- 전체 데이터 크기와 무관하게 배치 크기만큼만 메모리 사용
-- 수백만 개 레코드도 안정적 처리
+1. **API 키 보안**: `.env` 파일을 절대 커밋하지 마세요
+2. **대용량 데이터**: 메모리 사용량 모니터링 필요
+3. **비용 관리**: OpenAI와 Tavily API 사용량 확인
+4. **인덱싱 시간**: 대용량 데이터는 초기 인덱싱에 시간 소요
 
-### 2. **확장성**  
-- 데이터 소스 추상화로 다양한 DB 지원
-- 배치 크기 조정으로 성능 튜닝 가능
+## 📚 참고 자료
 
-### 3. **유지보수성**
-- 도메인 모델 분리 (Gender, AgeGroup, AgeRating)
-- 벡터 저장소 모듈화
-- 단일 책임 원칙 적용
+- [LangGraph 문서](https://python.langchain.com/docs/langgraph)
+- [Qdrant 문서](https://qdrant.tech/documentation/)
+- [OpenAI Embeddings](https://platform.openai.com/docs/guides/embeddings)
+- [Tavily API](https://docs.tavily.com/)
 
-### 4. **성능 최적화**
-- 배치별 병렬 처리 가능
-- 메모리 해제를 통한 GC 압박 최소화
-- 점진적 벡터 인덱싱
+## 🤝 기여 방법
 
-## 📈 성능 벤치마크
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-```
-=== 100만개 레코드 처리 테스트 ===
-가상 DB: 1,000,000개 레코드 (실제 상용 환경 시뮬레이션)
-배치 크기: 5,000개
-예상 총 배치 수: 200개
-최대 메모리 사용량: 배치 크기만큼 (5,000개)
+## 📄 라이선스
 
-✅ 메모리 효율성 확인
-✅ 확장성 확인  
-✅ 안정성 확인
-```
-
-## 🛠️ 설치 및 실행
-
-```bash
-# 의존성 설치
-uv sync
-
-# 기본 실행 (CSV)
-python manga-recommendation-langgraph.py
-
-# 대용량 테스트
-python -c "
-from data_source import MockDatabaseMangaDataSource
-mock = MockDatabaseMangaDataSource(1000000)
-print(f'시뮬레이션: {mock.get_total_count():,}개 레코드')
-"
-```
-
-## 🔄 확장 계획
-
-1. **실제 DB 구현** - PostgreSQL, MySQL, MongoDB 지원
-2. **분산 처리** - 여러 서버에서 배치 병렬 처리  
-3. **캐싱 레이어** - Redis를 통한 중간 결과 캐싱
-4. **모니터링** - 배치 처리 진행률 및 성능 메트릭
-
-## 🆚 Docker vs 클라우드 Qdrant 비교
-
-| 구분 | 🐳 Docker 방식 | ☁️ 클라우드 방식 |
-|------|---------------|-----------------|
-| **설정 복잡도** | 간단 (docker-compose up) | 중간 (API 키 설정) |
-| **비용** | 무료 (로컬 리소스 사용) | 유료 (사용량 기반) |
-| **성능** | 로컬 네트워크 (빠름) | 인터넷 네트워크 (상대적 느림) |
-| **확장성** | 제한적 (단일 서버) | 높음 (클라우드 자동 확장) |
-| **데이터 지속성** | Docker 볼륨 (로컬) | 클라우드 백업 |
-| **적합한 환경** | 개발/테스트 | 상용/프로덕션 |
-
-### 💡 권장 사용법
-
-- **개발/테스트**: Docker 방식 (빠른 설정, 무료)
-- **상용 환경**: 클라우드 방식 (안정성, 확장성)
-
-### 🧪 Qdrant 모드 테스트
-
-설정이 올바른지 확인하려면 테스트 스크립트를 실행하세요:
-
-```bash
-# Qdrant 모드 테스트
-python test_qdrant_modes.py
-
-# Docker Qdrant가 실행 중인지 확인
-docker-compose ps
-```
+이 프로젝트는 MIT 라이선스 하에 배포됩니다.
