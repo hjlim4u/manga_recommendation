@@ -68,24 +68,48 @@ class MangaDataSource(ABC):
         
         return ""
     
-    def _extract_published_info(self, published_data: Any) -> str:
-        """출간 정보 추출"""
+    def _extract_published_info(self, published_data: Any) -> tuple[str, str, str]:
+        """출간 정보 추출 - from, to 날짜와 string 반환"""
         if not published_data:
-            return ""
+            return "", "", ""
         
         try:
             if isinstance(published_data, str):
                 pub_data = json.loads(published_data)
-                return pub_data.get('string', '')
             elif isinstance(published_data, dict):
-                return pub_data.get('string', '')
+                pub_data = published_data
             else:
-                return str(published_data)
+                return "", "", str(published_data)
+            
+            # from과 to 날짜 추출
+            from_date = ""
+            to_date = ""
+            
+            if 'from' in pub_data:
+                from_date = pub_data['from']
+                # ISO 형식에서 날짜만 추출 (예: "1994-12-05T00:00:00+00:00" -> "1994-12-05")
+                if isinstance(from_date, str) and 'T' in from_date:
+                    from_date = from_date.split('T')[0]
+            
+            if 'to' in pub_data:
+                to_date = pub_data['to']
+                # ISO 형식에서 날짜만 추출
+                if isinstance(to_date, str) and 'T' in to_date:
+                    to_date = to_date.split('T')[0]
+            
+            # 기존 string 필드도 유지 (호환성)
+            string_date = pub_data.get('string', '')
+            
+            return from_date, to_date
+            
         except (json.JSONDecodeError, TypeError):
-            return str(published_data)
+            return "", "", str(published_data)
     
     def _normalize_manga_record(self, raw_record: Dict[str, Any]) -> Dict[str, Any]:
         """원시 레코드를 정규화된 형식으로 변환"""
+        # 출간 정보 추출
+        published_from, published_to = self._extract_published_info(raw_record.get('published'))
+        
         return {
             # 기본 필드들 (문자열)
             'id': int(raw_record.get('id', 0)),
@@ -105,14 +129,16 @@ class MangaDataSource(ABC):
             
             # 복잡한 객체 처리
             'image_url': self._extract_image_url(raw_record.get('images')),
-            'published': self._extract_published_info(raw_record.get('published'))
+            'published_start': published_from,    # 새로운 필드
+            'published_end': published_to,        # 새로운 필드
         }
     
     def create_documents(self, manga_data: List[Dict[str, Any]]) -> List[Document]:
-        """정규화된 데이터로부터 Document 생성 (극도로 간소화된 버전)"""
+        """정규화된 데이터로부터 Document 생성 (날짜 정보 포함)"""
         documents = []
         
         for i, manga in enumerate(manga_data):
+            
             # 모든 content 구성을 한 번에 처리
             content_parts = [
                 # 제목 (가중치 증가)
@@ -120,7 +146,7 @@ class MangaDataSource(ABC):
                     title for title in [manga['title'], manga['title_english'], manga['title_japanese']] 
                     if title.strip()
                 ])) else []),
-                
+
                 # 리스트 필드들
                 *[f"{name}: {' / '.join(value)}" 
                   for name, value in [
@@ -130,7 +156,7 @@ class MangaDataSource(ABC):
                       ('demographics', manga['demographics'])
                   ] if value],
                 
-                # 텍스트 필드들 (길이 제한 해제)
+                # 텍스트 필드들
                 *[f"{name}: {text}"
                   for name, text in [
                       ('synopsis', manga['synopsis'].strip()),
@@ -148,7 +174,8 @@ class MangaDataSource(ABC):
                     'title_english': manga['title_english'],
                     'title_japanese': manga['title_japanese'],
                     'status': manga['status'],
-                    'published': manga['published'],
+                    'published_start': manga['published_start'],    # 새로운 필드
+                    'published_end': manga['published_end'],        # 새로운 필드
                     'background': manga['background'],
                     'genres': manga['genres'],
                     'themes': manga['themes'],

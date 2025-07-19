@@ -2,11 +2,46 @@
 
 만화 추천 시스템은 사용자의 선호도를 기반으로 개인화된 만화 추천을 제공하는 AI 시스템입니다.
 
+## 🚀 빠른 시작
+
+### Docker 방식 (권장 - 개발용)
+
+```bash
+# 1. Qdrant 시작
+docker-compose up -d
+
+# 2. 환경 변수 설정 (.env 파일)
+echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+
+# 3. 의존성 설치
+pip install -e .
+
+# 4. 실행
+python main.py
+```
+
+### 클라우드 방식 (상용 환경)
+
+```bash
+# 1. 환경 변수 설정 (.env 파일)
+echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+echo "QDRANT_URL=https://your-cluster.qdrant.io" >> .env
+echo "QDRANT_API_KEY=your_api_key_here" >> .env
+
+# 2. 의존성 설치
+pip install -e .
+
+# 3. 실행
+python main.py
+```
+
 ## 🛠️ 환경 설정
 
 ### 1. Qdrant 벡터 저장소 설정
 
-이 프로젝트는 벡터 저장소로 Qdrant를 사용합니다. Docker Compose를 사용하여 쉽게 설정할 수 있습니다.
+이 프로젝트는 벡터 저장소로 Qdrant를 사용합니다. **Docker (로컬)** 또는 **클라우드 Qdrant** 중 선택할 수 있습니다.
+
+#### 🐳 Docker 방식 (로컬 개발용)
 
 ```bash
 # Qdrant 컨테이너 시작
@@ -18,6 +53,13 @@ docker-compose ps
 # Qdrant 웹 UI 접속 (선택사항)
 # http://localhost:6333/dashboard
 ```
+
+#### ☁️ 클라우드 방식 (상용 환경용)
+
+Qdrant Cloud 계정이 필요합니다: https://cloud.qdrant.io/
+
+1. Qdrant Cloud에서 새 클러스터 생성
+2. 환경 변수 설정 (아래 참조)
 
 ### 2. Python 환경 설정
 
@@ -36,6 +78,18 @@ pip install -e .
 
 `.env` 파일을 생성하고 다음 환경 변수를 설정하세요:
 
+#### 🐳 Docker 방식 사용 시 (최소 설정)
+
+```bash
+# OpenAI API 키 (필수)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Tavily API 키 (웹 검색용, 선택사항)
+TAVILY_API_KEY=your_tavily_api_key_here
+```
+
+#### ☁️ 클라우드 방식 사용 시 (추가 설정)
+
 ```bash
 # OpenAI API 키 (필수)
 OPENAI_API_KEY=your_openai_api_key_here
@@ -43,13 +97,12 @@ OPENAI_API_KEY=your_openai_api_key_here
 # Tavily API 키 (웹 검색용, 선택사항)
 TAVILY_API_KEY=your_tavily_api_key_here
 
-# Qdrant URL 주소 (필수)
-QDRANT_URL=your_qdrant_cloud_url_here 
-
-# Qdrant API 키 (필수)
-QDRANT_API_KEY=your_qdrant_api_key_he
-
+# Qdrant Cloud 설정 (클라우드 사용 시 필수)
+QDRANT_URL=https://your-cluster-id.qdrant.io
+QDRANT_API_KEY=your_qdrant_api_key_here
 ```
+
+**💡 자동 감지**: `QDRANT_URL`과 `QDRANT_API_KEY`가 설정되어 있으면 자동으로 클라우드 모드로 전환됩니다.
 
 ## 🚀 실행 방법
 
@@ -62,6 +115,8 @@ python main.py
 
 ### 개발/테스트 환경
 
+#### 🐳 Docker 방식
+
 ```bash
 # Qdrant 시작
 docker-compose up -d
@@ -73,7 +128,14 @@ python main.py
 docker-compose down
 ```
 
-## 📦 Docker 관리 명령어
+#### ☁️ 클라우드 방식
+
+```bash
+# 환경 변수 설정 후 바로 실행
+python main.py
+```
+
+## 📦 Docker 관리 명령어 (Docker 방식 사용 시)
 
 ```bash
 # Qdrant 시작 (백그라운드)
@@ -94,10 +156,16 @@ docker-compose restart qdrant
 
 ## 🔧 Qdrant 설정 정보
 
+### 🐳 Docker 방식
 - **HTTP API 포트**: 6333
 - **gRPC 포트**: 6334 (선택사항)
 - **웹 대시보드**: http://localhost:6333/dashboard
 - **데이터 저장소**: Docker 볼륨 `qdrant_storage`
+
+### ☁️ 클라우드 방식
+- **URL**: https://your-cluster-id.qdrant.io
+- **API 키**: Qdrant Cloud 대시보드에서 확인
+- **웹 대시보드**: 클라우드 대시보드에서 관리
 
 ## 🏗️ 시스템 아키텍처
 
@@ -418,9 +486,13 @@ user_input = {
     "favorite_manga": "목소리를 못 내는 소녀는"
 }
 
-# CSV 데이터 소스 사용
+# CSV 데이터 소스 사용 (Docker Qdrant 자동 감지)
 csv_source = CSVMangaDataSource("graphic_kmas_comic(1).csv")
 result = await run_recommendation(user_input, data_source=csv_source)
+
+# 클라우드 Qdrant 강제 사용
+from vector_store import QdrantMangaStore
+cloud_store = QdrantMangaStore(use_cloud=True)
 ```
 
 ### 대용량 데이터 테스트
@@ -503,3 +575,31 @@ print(f'시뮬레이션: {mock.get_total_count():,}개 레코드')
 2. **분산 처리** - 여러 서버에서 배치 병렬 처리  
 3. **캐싱 레이어** - Redis를 통한 중간 결과 캐싱
 4. **모니터링** - 배치 처리 진행률 및 성능 메트릭
+
+## 🆚 Docker vs 클라우드 Qdrant 비교
+
+| 구분 | 🐳 Docker 방식 | ☁️ 클라우드 방식 |
+|------|---------------|-----------------|
+| **설정 복잡도** | 간단 (docker-compose up) | 중간 (API 키 설정) |
+| **비용** | 무료 (로컬 리소스 사용) | 유료 (사용량 기반) |
+| **성능** | 로컬 네트워크 (빠름) | 인터넷 네트워크 (상대적 느림) |
+| **확장성** | 제한적 (단일 서버) | 높음 (클라우드 자동 확장) |
+| **데이터 지속성** | Docker 볼륨 (로컬) | 클라우드 백업 |
+| **적합한 환경** | 개발/테스트 | 상용/프로덕션 |
+
+### 💡 권장 사용법
+
+- **개발/테스트**: Docker 방식 (빠른 설정, 무료)
+- **상용 환경**: 클라우드 방식 (안정성, 확장성)
+
+### 🧪 Qdrant 모드 테스트
+
+설정이 올바른지 확인하려면 테스트 스크립트를 실행하세요:
+
+```bash
+# Qdrant 모드 테스트
+python test_qdrant_modes.py
+
+# Docker Qdrant가 실행 중인지 확인
+docker-compose ps
+```

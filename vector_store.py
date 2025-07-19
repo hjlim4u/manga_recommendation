@@ -19,18 +19,29 @@ logger = logging.getLogger(__name__)
 class QdrantMangaStore:
     """Qdrant 벡터 저장소를 사용한 만화 데이터 관리 클래스"""
     
-    def __init__(self, collection_name: str = "manga_collection"):
+    def __init__(self, collection_name: str = "manga_collection", use_cloud: bool = False):
         self.collection_name = collection_name
         self.embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
         
         # Qdrant 클라이언트 초기화
-        # 클라우드 Qdrant 설정
-        self.client = QdrantClient(
-            url=os.getenv("QDRANT_URL"),
-            api_key=os.getenv("QDRANT_API_KEY"),
-            prefer_grpc=True,
-            timeout=20000
-        )
+        
+        if use_cloud:
+            # 클라우드 Qdrant 설정
+            self.client = QdrantClient(
+                url=os.getenv("QDRANT_URL"),
+                api_key=os.getenv("QDRANT_API_KEY"),
+                prefer_grpc=True,
+                timeout=20000
+            )
+            logger.info("🔗 클라우드 Qdrant에 연결됨")
+        else:
+            # Docker Qdrant 설정 (로컬)
+            self.client = QdrantClient(
+                url="http://localhost:6333",
+                prefer_grpc=False,
+                timeout=20000
+            )
+            logger.info("🐳 Docker Qdrant에 연결됨")
         
         # 컬렉션 생성
         self._create_collection_if_not_exists()
