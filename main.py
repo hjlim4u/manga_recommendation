@@ -1,23 +1,24 @@
 import asyncio
 from typing import Dict, Optional
 from data_source import CSVMangaDataSource, MockDatabaseMangaDataSource, DatabaseMangaDataSource
-from manga_recommendation_langgraph import create_recommendation_graph
+from manga_recommendation_langgraph import create_recommendation_graph  # 🎯 간단한 import!
 
 async def main():
     """메인 추천 실행 함수"""
     print("Hello from manga-recommendation!")
-    
+    genres = ["Action","Adventure","Avant Garde","Award Winning","Boys Love","Comedy","Drama","Ecchi","Erotica","Fantasy","Girls Love","Gourmet","Hentai","Horror","Mystery","Romance","Sci-Fi","Slice of Life","Sports","Supernatural","Suspense"]
+    demographics = ["Josei","Kids","Seinen","Shoujo","Shounen"]
     # 사용 예시
     user_input = {
-        "gender": "여",
+        "gender": "female",
         "age": "18~30", 
-        "genres": ["로맨스/순정", "드라마"],
-        "favorite_manga": "목소리를 못 내는 소녀는, 한국에 남자가 너무 많아서"
+        "genres": ["Avant Garde", "Drama"],
+        "favorite_manga": "Kaibutsu Oujo"
     }
     
     # 데이터 소스 선택 (예시)
     # 방법 1: CSV 파일 사용 (테스트/개발용)
-    csv_data_source = CSVMangaDataSource("kmas_comic_sample.csv")
+    csv_data_source = CSVMangaDataSource("manga_rows.csv")
     
     # 방법 2: 모킹 데이터베이스 사용 (대용량 테스트용) 
     # mock_data_source = MockDatabaseMangaDataSource(record_count=100000)
@@ -54,7 +55,7 @@ async def main():
     for i, rec in enumerate(recommendations, 1):
         doc = candidates[rec['index'] - 1]
         
-        print(f"\n{i}. {doc.metadata['title']} ({doc.metadata.get('main_genre_cd_nm', 'N/A')})")
+        print(f"\n{i}. {doc.metadata['title']} ({doc.metadata.get('genres', 'N/A')})")
         print(f"   작가: {doc.metadata.get('author', 'N/A')}")
         print(f"   유사도: {doc.metadata.get('similarity_score', 0):.3f}")
         print(f"   추천 이유: {rec['recommendation_reason']}")

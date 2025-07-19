@@ -21,13 +21,14 @@ docker-compose ps
 
 ### 2. Python 환경 설정
 
-**Python 3.13 이상이 필요합니다.**
-
 ```bash
-# uv를 사용한 의존성 설치 (권장)
-uv sync
+# Python 가상환경 생성 및 활성화
+python -m venv .venv
+source .venv/bin/activate  # macOS/Linux
+# 또는
+.venv\Scripts\activate     # Windows
 
-# 또는 pip 사용
+# 의존성 설치
 pip install -e .
 ```
 
@@ -41,6 +42,13 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 # Tavily API 키 (웹 검색용, 선택사항)
 TAVILY_API_KEY=your_tavily_api_key_here
+
+# Qdrant URL 주소 (필수)
+QDRANT_URL=your_qdrant_cloud_url_here 
+
+# Qdrant API 키 (필수)
+QDRANT_API_KEY=your_qdrant_api_key_he
+
 ```
 
 ## 🚀 실행 방법
@@ -97,33 +105,26 @@ docker-compose restart qdrant
 
 ```
 📁 manga-recommendation/
-├── 🎯 domain.py                           # 도메인 모델 (Gender, AgeGroup, AgeRating)
-├── 📊 data_source.py                      # 데이터 소스 추상화 (배치 스트리밍 지원)
-├── 🔍 vector_store.py                     # 벡터 저장소 (Qdrant + 배치 인덱싱)
-├── 🧠 manga_recommendation_langgraph.py   # 메인 추천 로직 (LangGraph)
-├── 📈 main.py                             # 실행 예시
-└── 📝 prompt_templates.py                 # 프롬프트 템플릿
+├── 🎯 domain.py                 # 도메인 모델 (Gender, AgeGroup, AgeRating)
+├── 📊 data_source.py            # 데이터 소스 추상화 (배치 스트리밍 지원)
+├── 🔍 vector_store.py           # 벡터 저장소 (Qdrant + 배치 인덱싱)
+├── 🧠 manga-recommendation-langgraph.py  # 메인 추천 로직 (LangGraph)
+└── 📈 main.py                   # 실행 예시
 ```
 
 ### 데이터 소스 추상화
 
 대용량 데이터 처리를 위한 **배치 스트리밍** 아키텍처:
 
-#### 1. **CSVMangaDataSource** (테스트/개발용) ✅ 구현됨
+#### 1. **CSVMangaDataSource** (테스트/개발용)
 ```python
 # 소규모 CSV 파일 처리
-csv_source = CSVMangaDataSource("kmas_comic_sample.csv")
+csv_source = CSVMangaDataSource("manga_data.csv")
 ```
 
-#### 2. **MockDatabaseMangaDataSource** (대용량 테스트) ✅ 구현됨
+#### 2. **DatabaseMangaDataSource** (상용 환경)
 ```python
-# 백만개 레코드 시뮬레이션
-mock_source = MockDatabaseMangaDataSource(record_count=1000000)
-```
-
-#### 3. **DatabaseMangaDataSource** (상용 환경) ⚠️ 미구현
-```python
-# 실제 DB 연결 (PostgreSQL, MySQL 등) - 향후 구현 예정
+# 실제 DB 연결 (PostgreSQL, MySQL 등)
 db_config = {
     "host": "localhost",
     "database": "manga_db", 
@@ -133,48 +134,15 @@ db_config = {
 db_source = DatabaseMangaDataSource(db_config, db_batch_size=10000)
 ```
 
-## 🚀 핵심 기능
-
-### 1. 메모리 효율적 배치 스트리밍
-
+#### 3. **MockDatabaseMangaDataSource** (대용량 테스트)
 ```python
-# ❌ 기존 방식 (메모리 부족 위험)
-all_data = data_source.load_manga_data()  # 전체 로드
-
-# ✅ 새로운 방식 (배치 스트리밍)
-for batch in data_source.load_manga_data_batches(batch_size=5000):
-    process_batch(batch)  # 배치별 처리
-    del batch  # 메모리 해제
+# 백만개 레코드 시뮬레이션
+mock_source = MockDatabaseMangaDataSource(record_count=1000000)
 ```
 
-### 2. 대용량 데이터 처리 성능
+# 📚 **manga-recommendation-langgraph 추천 로직 상세 분석**
 
-| 데이터 크기 | 기존 방식 | 배치 스트리밍 |
-|------------|----------|-------------|
-| 1만개 | ✅ 가능 | ✅ 최적화 |
-| 10만개 | ⚠️ 느림 | ✅ 빠름 |
-| 100만개 | ❌ 메모리 부족 | ✅ 처리 가능 |
-| 1000만개 | ❌ 불가능 | ✅ 확장 가능 |
-
-### 3. 유연한 데이터 소스 교체
-
-```python
-# 개발 단계 - CSV 파일
-dev_source = CSVMangaDataSource("kmas_comic_sample.csv")
-
-# 테스트 단계 - 모킹 대용량 데이터  
-test_source = MockDatabaseMangaDataSource(record_count=100000)
-
-# 상용 단계 - 실제 데이터베이스 (향후 구현)
-# prod_source = DatabaseMangaDataSource(db_config)
-
-# 동일한 인터페이스로 사용
-app = create_recommendation_graph(any_source)
-```
-
-## 📚 **manga-recommendation-langgraph 추천 로직 상세 분석**
-
-### 🏗️ **전체 아키텍처**
+## 🏗️ **전체 아키텍처**
 
 ```mermaid
 graph TD
@@ -190,18 +158,17 @@ graph TD
 
 ---
 
-### 📊 **1. 데이터 구조 (RecommendationState)**
+## 📊 **1. 데이터 구조 (RecommendationState)**
 
 ```python
 class RecommendationState(TypedDict):
     # 사용자 입력
-    user_gender: Literal["남", "여", "넘어가기"]
+    user_gender: Literal["male", "female", "skip"]
     user_age_group: Literal["12~15", "15~18", "18~30", "30~40", "40~50", "50~"]
     user_genres: List[str]
     user_favorite_manga: str
     
     # 처리 결과
-    processed_profile: Dict        # 정규화된 프로필
     search_results: List[Document] # 벡터 검색 결과
     recommendations: List[Dict]    # 최종 추천
     # ... 기타 상태 정보
@@ -211,9 +178,9 @@ class RecommendationState(TypedDict):
 
 ---
 
-### 🗄️ **2. 벡터 데이터베이스 (Qdrant)**
+## 🗄️ **2. 벡터 데이터베이스 (Qdrant)**
 
-#### **데이터 인덱싱**
+### **데이터 인덱싱**
 ```python
 def _initialize_data(self):
     # 1. CSV에서 만화 정보 로드
@@ -223,16 +190,16 @@ def _initialize_data(self):
     # 5. Qdrant에 배치 인덱싱
 ```
 
-#### **핵심 특징**
+### **핵심 특징**
 - **벡터 차원**: 3072 (OpenAI text-embedding-3-large)
 - **유사도 측정**: Cosine Distance
 - **인덱싱 방식**: 배치 처리 (100개씩)
 
 ---
 
-### 🔄 **3. 추천 워크플로우 (5단계)**
+## 🔄 **3. 추천 워크플로우 (5단계)**
 
-#### **Step 1: 프로필 처리 (`process_user_profile`)**
+### **Step 1: 프로필 처리 (`process_user_profile`)**
 
 ```python
 profile = {
@@ -246,16 +213,15 @@ profile = {
 
 **핵심 로직**:
 - 사용자 입력을 정규화된 프로필로 변환
-- 좋아하는 만화를 `,` `/` `과` `와` 등으로 파싱
 - 연령등급 제한 설정
 
 ---
 
-#### **Step 2: 벡터 검색 (`search_similar_manga`)**
+### **Step 2: 벡터 검색 (`search_similar_manga`)**
 
 **2가지 전략을 순차적으로 시도**:
 
-##### **전략 1: 중심점 임베딩 (`_search_by_centroid`)**
+#### **전략 1: 중심점 임베딩 (`_search_by_centroid`)**
 ```python
 # 1. 좋아하는 만화들의 임베딩 벡터 추출
 # 2. 중심점(centroid) 계산: np.mean(embeddings)
@@ -263,7 +229,7 @@ profile = {
 # 4. Qdrant 검색 (장르+연령+제외 필터링)
 ```
 
-##### **전략 2: 개별 검색 후 병합 (`_search_by_individual`)**
+#### **전략 2: 개별 검색 후 병합 (`_search_by_individual`)**
 ```python
 # 1. 각 좋아하는 만화별로 개별 검색
 # 2. 검색 결과를 점수별로 누적
@@ -279,7 +245,7 @@ if (title in db_title) or (db_title in title and len(db_title) > 3):
 
 ---
 
-#### **Step 3: 웹 검색 보강 (`enrich_with_web_search`)**
+### **Step 3: 웹 검색 보강 (`enrich_with_web_search`)**
 
 ```python
 # 병렬 웹 검색
@@ -297,7 +263,7 @@ await asyncio.gather(
 
 ---
 
-#### **Step 4: LLM 추천 생성 (`generate_recommendations`)**
+### **Step 4: LLM 추천 생성 (`generate_recommendations`)**
 
 **프롬프트 구성**:
 ```python
@@ -335,7 +301,7 @@ match_patterns = [
 
 ---
 
-#### **Step 5: 품질 검증 (`validate_results`)**
+### **Step 5: 품질 검증 (`validate_results`)**
 
 **검증 조건**:
 ```python
@@ -356,31 +322,31 @@ if len(recommendations) < 3:
 
 ---
 
-### 🔧 **4. 핵심 기술적 특징**
+## 🔧 **4. 핵심 기술적 특징**
 
-#### **🎯 정확성**
+### **🎯 정확성**
 - **부분 문자열 매칭**: 제목 변형에 강건
 - **다중 매칭 패턴**: LLM 응답 형식 다양성 대응
 - **중복 방지**: 같은 만화 여러 번 추천 방지
 
-#### **⚡ 성능**
+### **⚡ 성능**
 - **배치 인덱싱**: 1000개 문서를 100개씩 처리
 - **병렬 웹 검색**: asyncio.gather 활용
 - **효율적 필터링**: Qdrant 네이티브 필터 사용
 
-#### **🛡️ 안정성**
+### **🛡️ 안정성**
 - **무한루프 방지**: 최대 시도 횟수 제한
 - **자동 보완**: 파싱 실패 시 대안 제공
 - **오류 처리**: 각 단계별 예외 처리
 
-#### **📊 품질 보장**
+### **📊 품질 보장**
 - **2단계 검증**: 개수 + LLM 품질 평가
 - **재시도 메커니즘**: 품질 미달 시 다른 전략 시도
 - **상세 로깅**: 각 단계별 진행 상황 추적
 
 ---
 
-### 🎯 **5. 최종 출력**
+## 🎯 **5. 최종 출력**
 
 ```python
 # 각 추천마다 포함되는 정보
@@ -397,10 +363,78 @@ recommendation = {
 
 이 시스템은 **벡터 검색의 정확성**과 **LLM의 맥락 이해**를 결합하여, 사용자 취향에 맞는 고품질 만화 추천을 안정적으로 제공합니다! 🚀
 
-### 상용 환경 (실제 DB) - 향후 구현
+## 🚀 핵심 기능
+
+### 1. 메모리 효율적 배치 스트리밍
 
 ```python
-# 실제 데이터베이스 연결 (구현 예정)
+# ❌ 기존 방식 (메모리 부족 위험)
+all_data = data_source.load_manga_data()  # 전체 로드
+
+# ✅ 새로운 방식 (배치 스트리밍)
+for batch in data_source.load_manga_data_batches(batch_size=5000):
+    process_batch(batch)  # 배치별 처리
+    del batch  # 메모리 해제
+```
+
+### 2. 대용량 데이터 처리 성능
+
+| 데이터 크기 | 기존 방식 | 배치 스트리밍 |
+|------------|----------|-------------|
+| 1만개 | ✅ 가능 | ✅ 최적화 |
+| 10만개 | ⚠️ 느림 | ✅ 빠름 |
+| 100만개 | ❌ 메모리 부족 | ✅ 처리 가능 |
+| 1000만개 | ❌ 불가능 | ✅ 확장 가능 |
+
+### 3. 유연한 데이터 소스 교체
+
+```python
+# 개발 단계 - CSV 파일
+dev_source = CSVMangaDataSource("test_data.csv")
+
+# 테스트 단계 - 모킹 대용량 데이터  
+test_source = MockDatabaseMangaDataSource(record_count=100000)
+
+# 상용 단계 - 실제 데이터베이스
+prod_source = DatabaseMangaDataSource(db_config)
+
+# 동일한 인터페이스로 사용
+app = create_recommendation_graph(any_source)
+```
+
+## 📊 사용 예시
+
+### 기본 사용법 (CSV)
+
+```python
+import asyncio
+from data_source import CSVMangaDataSource
+
+# 사용자 입력
+user_input = {
+    "gender": "여",
+    "age": "18~30", 
+    "genres": ["로맨스/순정", "드라마"],
+    "favorite_manga": "목소리를 못 내는 소녀는"
+}
+
+# CSV 데이터 소스 사용
+csv_source = CSVMangaDataSource("graphic_kmas_comic(1).csv")
+result = await run_recommendation(user_input, data_source=csv_source)
+```
+
+### 대용량 데이터 테스트
+
+```python
+# 100만개 레코드 시뮬레이션
+mock_source = MockDatabaseMangaDataSource(record_count=1000000)
+result = await run_recommendation(user_input, data_source=mock_source)
+```
+
+### 상용 환경 (실제 DB)
+
+```python
+# 실제 데이터베이스 연결 (구현 필요)
 db_config = {
     "host": "prod-db.company.com",
     "database": "manga_production",
@@ -453,7 +487,7 @@ result = await run_recommendation(user_input, data_source=db_source)
 uv sync
 
 # 기본 실행 (CSV)
-python main.py
+python manga-recommendation-langgraph.py
 
 # 대용량 테스트
 python -c "
@@ -469,15 +503,3 @@ print(f'시뮬레이션: {mock.get_total_count():,}개 레코드')
 2. **분산 처리** - 여러 서버에서 배치 병렬 처리  
 3. **캐싱 레이어** - Redis를 통한 중간 결과 캐싱
 4. **모니터링** - 배치 처리 진행률 및 성능 메트릭
-
-## 📋 구현 상태
-
-| 기능 | 상태 | 비고 |
-|------|------|------|
-| CSV 데이터 소스 | ✅ 완료 | `kmas_comic_sample.csv` 지원 |
-| Mock DB 데이터 소스 | ✅ 완료 | 대용량 테스트용 |
-| 실제 DB 데이터 소스 | ⚠️ 미구현 | 향후 구현 예정 |
-| 벡터 저장소 (Qdrant) | ✅ 완료 | 배치 인덱싱 지원 |
-| LangGraph 추천 로직 | ✅ 완료 | 웹 검색 보강 포함 |
-| 도메인 모델 | ✅ 완료 | Gender, AgeGroup, AgeRating |
-| 프롬프트 템플릿 | ✅ 완료 | 구조화된 프롬프트 |

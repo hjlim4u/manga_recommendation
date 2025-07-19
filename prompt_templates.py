@@ -11,7 +11,9 @@ class PromptTemplates:
     @staticmethod
     def generate_recommendation_prompt(
         favorite_docs: List[Document],
-        profile: Dict[str, Any],
+        gender: str,
+        age_group: str,
+        preferred_genres: List[str],
         candidates: List[Document],
         max_candidates: int = 15
     ) -> str:
@@ -22,45 +24,39 @@ class PromptTemplates:
 [사용자가 좋아하는 만화의 특징]
 """
         
-        # 좋아하는 만화들의 정보 추가
+        # 좋아하는 만화들의 정보 추가 (page_content 사용)
         for doc in favorite_docs:
-            if hasattr(doc, 'metadata'):
-                title = doc.metadata.get('title', '제목 없음')
-                genre = doc.metadata.get('main_genre_cd_nm', 'N/A')
-                author = doc.metadata.get('author', 'N/A')
-                outline = doc.metadata.get('outline', '')
-                web_info = doc.metadata.get('web_info', '')
-                
-                prompt += f"""
-• {title}
-  장르: {genre}
-  작가: {author}
-  줄거리: {outline[:150]}...
-  웹 검색 정보: {web_info[:200] if web_info else '추가 정보 없음'}...
+            web_info = doc.metadata.get('web_info', '')
+            
+            prompt += f"""
+• 만화 정보:
+{doc.page_content}
+
+웹 검색 추가 정보: {web_info[:200] if web_info else '추가 정보 없음'}...
 """
         
         # 사용자 프로필 정보 추가
         prompt += f"""
 
 [사용자 프로필]
-- 좋아하는 만화: {', '.join(profile['favorite_manga'])}
-- 선호 장르: {', '.join(profile['preferred_genres'])}
-- 연령: {profile['age_group'][0]} ~ {profile['age_group'][1]}세
-- 성별: {profile['gender']}
+- 선호 장르: {', '.join(preferred_genres)}
+- 연령대: {age_group}
+- 성별: {gender}
 
 [추천 후보 만화 목록]
 """
         
-        # 후보 만화들에 번호 매기기
+        # 후보 만화들에 번호 매기기 (page_content 사용)
         limited_candidates = candidates[:max_candidates]
         for i, doc in enumerate(limited_candidates, 1):
-            m = doc.metadata
+            web_info = doc.metadata.get('web_info', '')
+            
             prompt += f"""
-{i}. {m['title']}
-   장르: {m.get('main_genre_cd_nm', 'N/A')}
-   작가: {m.get('author', 'N/A')}
-   줄거리: {m.get('outline', 'N/A')[:200]}...
-   웹 검색 정보: {m.get('web_info', '추가 정보 없음')[:200]}...
+{i}. 만화 정보:
+{doc.page_content}
+
+웹 검색 추가 정보: {web_info[:200] if web_info else '추가 정보 없음'}...
+
 """
         
         # 응답 형식 지정
@@ -95,7 +91,10 @@ JSON 형식 외의 다른 텍스트는 포함하지 마세요."""
     
     @staticmethod
     def generate_validation_prompt(
-        profile: Dict[str, Any],
+        favorite_docs: List[Document],
+        gender: str,
+        age_group: str,
+        preferred_genres: List[str],
         recommendations: List[Dict],
         candidates: List[Document]
     ) -> str:
@@ -104,20 +103,35 @@ JSON 형식 외의 다른 텍스트는 포함하지 마세요."""
         prompt = f"""당신은 만화 추천 시스템의 품질 검증 전문가입니다.
 
 [사용자 프로필]
-- 좋아하는 만화: {', '.join(profile['favorite_manga'])}
-- 연령: {profile['age_group'][0]} ~ {profile['age_group'][1]}세
-- 선호 장르: {', '.join(profile['preferred_genres'])}
+- 연령대: {age_group}
+- 선호 장르: {', '.join(preferred_genres)}
+- 사용자가 좋아하는 만화 정보:
+"""
+
+        # 좋아하는 만화들의 정보 추가 (page_content 사용)
+        for doc in favorite_docs:
+            web_info = doc.metadata.get('web_info', '')
+
+            prompt += f"""
+• 만화 정보:
+{doc.page_content}
 
 [추천 결과 (총 {len(recommendations)}개)]
 """
         
-        # 추천 결과들 나열
+        # 추천 결과들 나열 (page_content 사용)
         for i, rec in enumerate(recommendations, 1):
             # 인덱스에서 실제 정보 가져오기
             doc = candidates[rec['index'] - 1]
-            title = doc.metadata.get('title', 'N/A')
             reason = rec['recommendation_reason']
-            prompt += f"{i}. {title} - {reason}\n"
+            
+            prompt += f"""
+{i}. 추천 만화:
+{doc.page_content}
+
+추천 이유: {reason}
+
+"""
         
         prompt += """
 3개의 추천이 모두 제공되었고, 사용자의 취향에 적합한지 평가하세요.
@@ -134,5 +148,5 @@ JSON 형식 외의 다른 텍스트는 포함하지 마세요."""
     
     @staticmethod
     def generate_web_search_query(manga_title: str) -> str:
-        """웹 검색을 위한 쿼리 생성"""
-        return f"{manga_title} 만화" 
+        """웹 검색을 위한 쿼리 생성 (metadata에서 제목 추출)"""
+        return f"{manga_title} manga"
